@@ -1,0 +1,16 @@
+# Binaries
+*.exe
+*.dll
+*.so
+*.dylib
+*.out
+
+# Temporary files
+*.log
+*.tmp
+*.swp
+
+# Build output
+/bin/
+/pkg/
+/vendor/
