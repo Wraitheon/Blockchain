@@ -1,0 +1,92 @@
+{
+  "1.csv": {
+    "fields": [
+      "Happiness Score",
+      "Economy (GDP per Capita)",
+      "Health (Life Expectancy)"
+    ],
+    "k": 3
+  },
+  "2.csv": {
+    "fields": [
+      "Happiness Score",
+      "Economy (GDP per Capita)",
+      "Health (Life Expectancy)"
+    ],
+    "k": 4
+  },
+  "3.csv": {
+    "fields": [
+      "Happiness.Score",
+      "Economy..GDP.per.Capita.",
+      "Health..Life.Expectancy."
+    ],
+    "k": 4
+  },
+  "4.csv": {
+    "fields": [
+      "Score",
+      "GDP per capita",
+      "Healthy life expectancy",
+      "Freedom to make life choices"
+    ],
+    "k": 3
+  },
+  "5.csv": {
+    "fields": [
+      "Score",
+      "GDP per capita",
+      "Healthy life expectancy",
+      "Freedom to make life choices"
+    ],
+    "k": 3
+  },
+  "6.csv": {
+    "fields": ["BALANCE", "PURCHASES", "CREDIT_LIMIT"],
+    "k": 5
+  },
+  "7.csv": {
+    "fields": ["x", "y"],
+    "k": 3
+  },
+  "8.csv": {
+    "fields": [
+      "SepalLengthCm",
+      "SepalWidthCm",
+      "PetalLengthCm",
+      "PetalWidthCm"
+    ],
+    "k": 3
+  },
+  "9.csv": {
+    "fields": ["INCOME", "SPEND"],
+    "k": 3
+  },
+  "10.csv": {
+    "fields": ["Age", "Annual Income (k$)", "Spending Score (1-100)"],
+    "k": 4
+  },
+  "11.csv": {
+    "fields": ["danceability", "energy", "valence", "tempo"],
+    "k": 5
+  },
+  "12.csv": {
+    "fields": ["bpm", "nrgy", "dnce", "val"],
+    "k": 4
+  },
+  "13.csv": {
+    "fields": [
+      "Fresh",
+      "Milk",
+      "Grocery",
+      "Frozen",
+      "Detergents_Paper",
+      "Delicassen"
+    ],
+    "k": 6
+  },
+  "14.csv": {
+    "fields": ["Alcohol", "Malic_Acid", "Ash", "Color_Intensity", "Hue"],
+    "k": 3
+  }
+}
