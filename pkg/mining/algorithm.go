@@ -34,17 +34,30 @@ func Normalize(data [][]float64) [][]float64 {
 	}
 	for i := range data {
 		for j := range data[i] {
-			data[i][j] = (data[i][j] - mins[j]) / (maxs[j] - mins[j])
+			rangeVal := maxs[j] - mins[j]
+			if rangeVal == 0 {
+				data[i][j] = 0 // Handle cases where all values are the same
+			} else {
+				data[i][j] = (data[i][j] - mins[j]) / rangeVal
+			}
 		}
 	}
 	return data
 }
 
 // KMeans implements the deterministic clustering algorithm
-func KMeans(data [][]float64, k int, maxIter int) ([]int, [][]float64) {
+func KMeans(data [][]float64, k int, maxIter int) ([]int, [][]float64, error) {
+	if len(data) == 0 {
+		return nil, nil, fmt.Errorf("data cannot be empty")
+	}
+	if k <= 0 || k > len(data) {
+		return nil, nil, fmt.Errorf("invalid number of clusters: k must be between 1 and the number of data points")
+	}
+
 	centroids := data[:k]
 	labels := make([]int, len(data))
 	for iter := 0; iter < maxIter; iter++ {
+		// Assign each point to the nearest centroid
 		for i := range data {
 			minDist := math.MaxFloat64
 			for j := range centroids {
@@ -55,6 +68,8 @@ func KMeans(data [][]float64, k int, maxIter int) ([]int, [][]float64) {
 				}
 			}
 		}
+
+		// Update centroids
 		newCentroids := make([][]float64, k)
 		counts := make([]int, k)
 		for i := range data {
@@ -67,17 +82,26 @@ func KMeans(data [][]float64, k int, maxIter int) ([]int, [][]float64) {
 			}
 			counts[centroid]++
 		}
+
+		// Finalize centroid positions
 		for j := range newCentroids {
-			for l := range newCentroids[j] {
-				newCentroids[j][l] /= float64(counts[j])
+			if counts[j] == 0 {
+				// Handle empty clusters by reinitializing the centroid randomly
+				newCentroids[j] = data[rand.Intn(len(data))]
+			} else {
+				for l := range newCentroids[j] {
+					newCentroids[j][l] /= float64(counts[j])
+				}
 			}
 		}
+
+		// Check for convergence
 		if converged(centroids, newCentroids) {
 			break
 		}
 		centroids = newCentroids
 	}
-	return labels, centroids
+	return labels, centroids, nil
 }
 
 // Euclidean distance
@@ -115,29 +139,51 @@ func ProcessDataset(filePath string, config Config) ([]int, [][]float64, error) 
 		return nil, nil, fmt.Errorf("error reading file %s: %w", filePath, err)
 	}
 
+	if len(records) < 2 {
+		return nil, nil, fmt.Errorf("file %s does not contain enough data", filePath)
+	}
+
 	headers := records[0]
 	fieldIndices := []int{}
 	for _, field := range config.Fields {
+		found := false
 		for i, header := range headers {
 			if strings.TrimSpace(header) == field {
 				fieldIndices = append(fieldIndices, i)
+				found = true
 				break
 			}
+		}
+		if !found {
+			return nil, nil, fmt.Errorf("field %s not found in headers", field)
 		}
 	}
 
 	data := [][]float64{}
 	for _, record := range records[1:] {
+		if len(record) < len(fieldIndices) {
+			return nil, nil, fmt.Errorf("incomplete record: %v", record)
+		}
 		row := []float64{}
 		for _, index := range fieldIndices {
-			num, _ := strconv.ParseFloat(record[index], 64)
+			num, err := strconv.ParseFloat(record[index], 64)
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to parse numeric value: %s", record[index])
+			}
 			row = append(row, num)
 		}
 		data = append(data, row)
 	}
 
+	if len(data) == 0 {
+		return nil, nil, fmt.Errorf("dataset is empty after processing")
+	}
+
 	data = Normalize(data)
-	labels, centroids := KMeans(data, config.K, 100)
+	labels, centroids, err := KMeans(data, config.K, 100)
+	if err != nil {
+		return nil, nil, fmt.Errorf("KMeans failed: %w", err)
+	}
 	return labels, centroids, nil
 }
 

@@ -13,3 +13,6 @@
 # Build output
 /bin/
 /vendor/
+
+# ipfs files folder
+/IPFS-Files
