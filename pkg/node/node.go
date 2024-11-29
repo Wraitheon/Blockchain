@@ -30,7 +30,7 @@ func NewNode(ipfsGateway string) *Node {
 		IPFSClient:    client,
 		Config:        make(map[string]mining.Config),
 		Algorithm:     "",
-		AlgorithmPath: "./algorithm.go", // Default path to save the algorithm file
+		AlgorithmPath: ".pkg/mining/algorithm.go", // Default path to save the algorithm file (inside networking pkg)
 	}
 }
 
