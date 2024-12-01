@@ -3,25 +3,20 @@ package blockchain
 import "fmt"
 
 type Transaction struct {
-	Sender    string
-	Recipient string
-	Amount    float64
+	ClusterID int       // Identifier for the cluster
+	Centroid  []float64 // Coordinates of the cluster centroid
+	Dataset   string    // Dataset associated with the clustering task
 }
 
-func CreateTransaction(sender string, recipient string, amount float64) Transaction {
+func NewTransaction(clusterID int, centroid []float64, dataset string) Transaction {
 	return Transaction{
-		Sender:    sender,
-		Recipient: recipient,
-		Amount:    amount,
+		ClusterID: clusterID,
+		Centroid:  centroid,
+		Dataset:   dataset,
 	}
 }
 
-func SerializeTransaction(transactions []Transaction) []string {
-	var result []string
-	for _, tx := range transactions {
-		record := tx.Sender + "->" + tx.Recipient + ": " + fmt.Sprintf("%.2f", tx.Amount)
-		result = append(result, record)
-	}
-
-	return result
+// Serialize generates a string representation of the transaction
+func (t Transaction) Serialize() string {
+	return fmt.Sprintf("Cluster %d: %v from Dataset %s", t.ClusterID, t.Centroid, t.Dataset)
 }
