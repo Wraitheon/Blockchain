@@ -3,7 +3,6 @@ package node
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 
@@ -14,23 +13,17 @@ import (
 
 // Node represents a blockchain node
 type Node struct {
-	Blockchain    *blockchain.Blockchain
-	IPFSClient    *ipfs.IPFSClient
-	Config        map[string]mining.Config
-	Algorithm     string // Content of the algorithm.go file
-	AlgorithmPath string // Local path for saving algorithm.go
+	Blockchain *blockchain.Blockchain
+	IPFSClient *ipfs.IPFSClient
 }
 
 // NewNode initializes a new node
 func NewNode(ipfsGateway string) *Node {
-	bc := blockchain.NewBlockchain()
+	bc := blockchain.NewBlockchain("Genesis Block") // Provide a genesis block
 	client := ipfs.NewIPFSClient(ipfsGateway)
 	return &Node{
-		Blockchain:    bc,
-		IPFSClient:    client,
-		Config:        make(map[string]mining.Config),
-		Algorithm:     "",
-		AlgorithmPath: ".pkg/mining/algorithm.go", // Default path to save the algorithm file (inside networking pkg)
+		Blockchain: bc,
+		IPFSClient: client,
 	}
 }
 
@@ -41,7 +34,8 @@ func (n *Node) LoadConfig(configCID string) error {
 		return fmt.Errorf("failed to fetch config.json: %v", err)
 	}
 
-	err = json.Unmarshal([]byte(configData), &n.Config)
+	var config map[string]mining.Config
+	err = json.Unmarshal([]byte(configData), &config)
 	if err != nil {
 		return fmt.Errorf("failed to parse config.json: %v", err)
 	}
@@ -50,64 +44,81 @@ func (n *Node) LoadConfig(configCID string) error {
 	return nil
 }
 
-// LoadAlgorithm fetches the algorithm file from IPFS
-func (n *Node) LoadAlgorithm(algorithmCID string) error {
+// LoadAndProcessDataset fetches and processes a dataset using an algorithm
+func (n *Node) LoadAndProcessDataset(datasetName, datasetCID, algorithmCID, configCID string) error {
+	// Fetch dataset from IPFS
+	datasetData, err := n.IPFSClient.FetchFile(datasetCID)
+	if err != nil {
+		return fmt.Errorf("failed to fetch dataset: %v", err)
+	}
+
+	// Temporary directory to store dataset
+	tempDir := filepath.Join(os.TempDir(), "blockchain-dataset")
+	err = os.MkdirAll(tempDir, 0755)
+	if err != nil {
+		return fmt.Errorf("failed to create temp directory: %v", err)
+	}
+
+	// Save the dataset locally with its known filename
+	datasetPath := filepath.Join(tempDir, datasetName)
+	err = saveToFile(datasetData, datasetPath)
+	if err != nil {
+		return fmt.Errorf("failed to save dataset locally: %v", err)
+	}
+
+	// Fetch and load the algorithm from IPFS
 	algorithmContent, err := n.IPFSClient.FetchFile(algorithmCID)
 	if err != nil {
 		return fmt.Errorf("failed to fetch algorithm.go: %v", err)
 	}
 
 	// Save the algorithm locally
-	err = saveToFile(n.AlgorithmPath, algorithmContent)
+	algorithmPath := filepath.Join(tempDir, "algorithm.go")
+	err = saveToFile([]byte(algorithmContent), algorithmPath)
 	if err != nil {
 		return fmt.Errorf("failed to save algorithm.go locally: %v", err)
 	}
 
-	n.Algorithm = algorithmContent
-	fmt.Println("Algorithm Loaded Successfully!")
-	return nil
-}
-
-// FetchAndMineAll fetches all datasets from an IPFS folder and mines each one
-func (n *Node) FetchAndMineAll(folderCID string) error {
-	datasetFiles, err := n.IPFSClient.ListFolder(folderCID)
+	// Fetch and load the config
+	configData, err := n.IPFSClient.FetchFile(configCID)
 	if err != nil {
-		return fmt.Errorf("failed to list datasets in folder: %v", err)
+		return fmt.Errorf("failed to fetch config.json: %v", err)
 	}
 
-	for _, datasetFile := range datasetFiles {
-		if _, exists := n.Config[datasetFile.Name]; !exists {
-			log.Printf("Skipping dataset '%s' (not in config)", datasetFile.Name)
-			continue
-		}
-
-		filePath := filepath.Join("./datasets", datasetFile.Name)
-		datasetData, err := n.IPFSClient.FetchFile(datasetFile.CID)
-		if err != nil {
-			log.Printf("Failed to fetch dataset '%s': %v", datasetFile.Name, err)
-			continue
-		}
-		err = saveToFile(filePath, datasetData)
-		if err != nil {
-			log.Printf("Failed to save dataset '%s' locally: %v", datasetFile.Name, err)
-			continue
-		}
-
-		log.Printf("Processing dataset '%s'...", datasetFile.Name)
-		config := n.Config[datasetFile.Name]
-		labels, centroids, err := mining.ProcessDataset(filePath, config)
-		if err != nil {
-			log.Printf("Failed to mine dataset '%s': %v", datasetFile.Name, err)
-			continue
-		}
-
-		n.Blockchain.AddBlock([]string{
-			fmt.Sprintf("Dataset: %s", datasetFile.Name),
-			fmt.Sprintf("Labels: %v", labels),
-			fmt.Sprintf("Centroids: %v", centroids),
-		})
-		log.Printf("Successfully mined dataset '%s'!", datasetFile.Name)
+	var config map[string]mining.Config
+	err = json.Unmarshal([]byte(configData), &config)
+	if err != nil {
+		return fmt.Errorf("failed to parse config.json: %v", err)
 	}
+
+	// Process the dataset with the loaded algorithm and config
+	processingConfig, exists := config[datasetName]
+	if !exists {
+		return fmt.Errorf("no config found for dataset '%s'", datasetName)
+	}
+
+	// Process the dataset (for example, running a clustering algorithm)
+	labels, centroids, err := mining.ProcessDataset(datasetPath, processingConfig)
+	if err != nil {
+		return fmt.Errorf("failed to process dataset: %v", err)
+	}
+
+	// Flatten centroids and convert labels to a string
+	flatCentroids := flattenCentroids(centroids)
+	labelsString := fmt.Sprintf("%v", labels)
+
+	// Add a transaction for the mined dataset
+	transaction := blockchain.NewTransaction(
+		algorithmContent, // Algorithm content
+		labelsString,     // Labels as a formatted string
+		flatCentroids,    // Centroids as a flattened slice
+	)
+
+	n.Blockchain.AddBlock([]blockchain.Transaction{transaction})
+	fmt.Printf("Dataset '%s' processed and added to the blockchain!\n", datasetName)
+
+	// Cleanup temporary files
+	os.RemoveAll(tempDir)
 
 	return nil
 }
@@ -118,30 +129,58 @@ func (n *Node) PrintBlockchain() {
 	fmt.Println("Blockchain State:")
 	for _, block := range blocks {
 		fmt.Printf("Block %d:\n", block.Index)
-		fmt.Println("  Transactions:", block.Transactions)
-		fmt.Println("  Hash:", block.Hash)
-		fmt.Println("  PrevHash:", block.PrevHash)
+		for _, tx := range block.Transactions {
+			fmt.Printf("  Transaction Data: %s\n", tx.Serialize())
+		}
+		fmt.Printf("  Hash: %s\n", block.Hash)
+		fmt.Printf("  PrevHash: %s\n", block.PrevHash)
 		fmt.Println("----------------------------")
 	}
 }
 
-// saveToFile saves fetched data to a file
-func saveToFile(filePath, data string) error {
-	dir := filepath.Dir(filePath)
-	err := os.MkdirAll(dir, 0755)
-	if err != nil {
-		return fmt.Errorf("failed to create directory: %v", err)
-	}
+// SaveFile saves any raw data (e.g., []byte) to a file
+func (n *Node) SaveFile(data []byte, fileName string, dataDir string) error {
+	filePath := filepath.Join(dataDir, fileName)
 
+	// Create the file
 	file, err := os.Create(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to create file: %v", err)
 	}
 	defer file.Close()
 
-	_, err = file.WriteString(data)
+	// Write the byte data to the file directly
+	_, err = file.Write(data)
 	if err != nil {
 		return fmt.Errorf("failed to write data to file: %v", err)
 	}
+
 	return nil
+}
+
+// Save data to a file, accepting []byte data
+func saveToFile(data []byte, filePath string) error {
+	// Open the file for writing
+	file, err := os.Create(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to create file: %v", err)
+	}
+	defer file.Close()
+
+	// Write the byte data to the file
+	_, err = file.Write(data)
+	if err != nil {
+		return fmt.Errorf("failed to write data to file: %v", err)
+	}
+
+	return nil
+}
+
+// flattenCentroids flattens a [][]float64 into a []float64
+func flattenCentroids(centroids [][]float64) []float64 {
+	var flatCentroids []float64
+	for _, centroid := range centroids {
+		flatCentroids = append(flatCentroids, centroid...)
+	}
+	return flatCentroids
 }

@@ -17,24 +17,20 @@ type Blockchain struct {
 	dataDir    string
 }
 
-// NewBlockchain initializes a new blockchain
 func NewBlockchain(dataDir string) *Blockchain {
 	bc := &Blockchain{
 		difficulty: 2,
 		dataDir:    dataDir,
 	}
 
-	// Ensure the directory exists
 	if err := os.MkdirAll(dataDir, 0755); err != nil {
 		log.Fatalf("Failed to create data directory: %v", err)
 	}
 
-	// Load existing blocks from storage
 	blocks, err := bc.loadBlocks()
 	if err != nil {
 		log.Printf("Failed to load blocks from disk: %v", err)
-		// Start with the genesis block if loading failed
-		genesisBlock := NewBlock(0, []string{"Genesis Block"}, "")
+		genesisBlock := NewBlock(0, []Transaction{}, "")
 		bc.blocks = []Block{genesisBlock}
 		bc.saveBlock(genesisBlock)
 	} else {
@@ -45,8 +41,7 @@ func NewBlockchain(dataDir string) *Blockchain {
 	return bc
 }
 
-// AddBlock adds a new block to the blockchain
-func (bc *Blockchain) AddBlock(transactions []string) {
+func (bc *Blockchain) AddBlock(transactions []Transaction) {
 	bc.chainMutex.Lock()
 	defer bc.chainMutex.Unlock()
 
@@ -55,21 +50,18 @@ func (bc *Blockchain) AddBlock(transactions []string) {
 	newBlock.MineBlock(bc.difficulty)
 	bc.blocks = append(bc.blocks, newBlock)
 
-	// Save the new block to disk
 	err := bc.saveBlock(newBlock)
 	if err != nil {
 		log.Printf("Failed to save block to disk: %v", err)
 	}
 }
 
-// GetBlocks returns all the blocks in the blockchain
 func (bc *Blockchain) GetBlocks() []Block {
 	bc.chainMutex.Lock()
 	defer bc.chainMutex.Unlock()
 	return bc.blocks
 }
 
-// IsValid validates the entire blockchain
 func (bc *Blockchain) IsValid() bool {
 	bc.chainMutex.Lock()
 	defer bc.chainMutex.Unlock()
@@ -78,12 +70,10 @@ func (bc *Blockchain) IsValid() bool {
 		currentBlock := bc.blocks[i]
 		prevBlock := bc.blocks[i-1]
 
-		// Validate Hash
 		if currentBlock.Hash != currentBlock.CalculateHash() {
 			return false
 		}
 
-		// Validate Link
 		if currentBlock.PrevHash != prevBlock.Hash {
 			return false
 		}
@@ -92,13 +82,11 @@ func (bc *Blockchain) IsValid() bool {
 	return true
 }
 
-// saveBlock saves a block to disk
 func (bc *Blockchain) saveBlock(block Block) error {
 	fileName := fmt.Sprintf("block_%d.json", block.Index)
 	return storage.SaveData(block, fileName, bc.dataDir)
 }
 
-// loadBlocks loads all blocks from disk
 func (bc *Blockchain) loadBlocks() ([]Block, error) {
 	fileNames, err := storage.ListFiles(bc.dataDir)
 	if err != nil {
@@ -108,7 +96,7 @@ func (bc *Blockchain) loadBlocks() ([]Block, error) {
 	var blocks []Block
 	for _, fileName := range fileNames {
 		if filepath.Ext(fileName) != ".json" {
-			continue // Skip non-JSON files
+			continue
 		}
 
 		var block Block

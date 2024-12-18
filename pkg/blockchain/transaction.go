@@ -1,22 +1,35 @@
 package blockchain
 
-import "fmt"
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+)
 
 type Transaction struct {
-	ClusterID int       // Identifier for the cluster
-	Centroid  []float64 // Coordinates of the cluster centroid
-	Dataset   string    // Dataset associated with the clustering task
+	AlgorithmHash string
+	DatasetHash   string
+	CentroidHash  string
 }
 
-func NewTransaction(clusterID int, centroid []float64, dataset string) Transaction {
+func NewTransaction(algorithmData, datasetData string, centroidData []float64) Transaction {
 	return Transaction{
-		ClusterID: clusterID,
-		Centroid:  centroid,
-		Dataset:   dataset,
+		AlgorithmHash: calculateHash(algorithmData),
+		DatasetHash:   calculateHash(datasetData),
+		CentroidHash:  calculateHash(formatCentroid(centroidData)),
 	}
 }
 
-// Serialize generates a string representation of the transaction
+func calculateHash(data string) string {
+	hash := sha256.Sum256([]byte(data))
+	return hex.EncodeToString(hash[:])
+}
+
+func formatCentroid(centroid []float64) string {
+	return fmt.Sprintf("%v", centroid)
+}
+
 func (t Transaction) Serialize() string {
-	return fmt.Sprintf("Cluster %d: %v from Dataset %s", t.ClusterID, t.Centroid, t.Dataset)
+	return fmt.Sprintf("AlgorithmHash: %s, DatasetHash: %s, CentroidHash: %s",
+		t.AlgorithmHash, t.DatasetHash, t.CentroidHash)
 }

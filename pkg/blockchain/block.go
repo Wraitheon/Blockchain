@@ -7,17 +7,16 @@ import (
 	"time"
 )
 
-// ADT for block structure
 type Block struct {
 	Index        int
 	Timestamp    int64
-	Transactions []string
+	Transactions []Transaction
 	PrevHash     string
 	Hash         string
 	Nonce        int
 }
 
-func NewBlock(index int, transactions []string, prevHash string) Block {
+func NewBlock(index int, transactions []Transaction, prevHash string) Block {
 	block := Block{
 		Index:        index,
 		Timestamp:    time.Now().Unix(),
@@ -31,7 +30,12 @@ func NewBlock(index int, transactions []string, prevHash string) Block {
 }
 
 func (b *Block) CalculateHash() string {
-	record := string(b.Index) + b.PrevHash + string(b.Timestamp) + strings.Join(b.Transactions, "") + string(b.Nonce)
+	transactionData := ""
+	for _, tx := range b.Transactions {
+		transactionData += tx.Serialize()
+	}
+
+	record := string(b.Index) + b.PrevHash + string(b.Timestamp) + transactionData + string(b.Nonce)
 	hash := sha256.Sum256([]byte(record))
 	return hex.EncodeToString(hash[:])
 }
