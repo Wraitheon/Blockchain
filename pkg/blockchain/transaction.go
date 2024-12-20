@@ -12,11 +12,11 @@ type Transaction struct {
 	CentroidHash  string
 }
 
-func NewTransaction(algorithmData, datasetData string, centroidData []float64) Transaction {
+func NewTransaction(algorithmData, datasetData , centroidData string) Transaction {
 	return Transaction{
 		AlgorithmHash: calculateHash(algorithmData),
 		DatasetHash:   calculateHash(datasetData),
-		CentroidHash:  calculateHash(formatCentroid(centroidData)),
+		CentroidHash:  calculateHash(centroidData),
 	}
 }
 
