@@ -32,41 +32,41 @@ func NewNode(ipfsGateway, tempDir string) *Node {
 }
 
 // DownloadRequiredFiles fetches and saves required files from IPFS
-func (n *Node) DownloadRequiredFiles(configCID, algorithmCID, folderCID string) error {
+func (n *Node) DownloadRequiredFiles(configCID, algorithmCID, folderCID string) (blockchain.Transaction, error) {
 	// Ensure the temp directory exists
 	if err := os.MkdirAll(n.TempDir, os.ModePerm); err != nil {
-		return fmt.Errorf("error creating temp directory: %v", err)
+		return blockchain.Transaction{}, fmt.Errorf("error creating temp directory: %v", err)
 	}
 
 	// Load and save the config file
 	configData, err := n.IPFSClient.FetchFile(configCID)
 	if err != nil {
-		return fmt.Errorf("error loading config: %v", err)
+		return blockchain.Transaction{}, fmt.Errorf("error loading config: %v", err)
 	}
 	configPath := filepath.Join(n.TempDir, "config.json")
 	if err := n.SaveFile(configData, configPath); err != nil {
-		return fmt.Errorf("error saving config file: %v", err)
+		return blockchain.Transaction{}, fmt.Errorf("error saving config file: %v", err)
 	}
 
 	// Load and save the algorithm file
 	algorithmData, err := n.IPFSClient.FetchFile(algorithmCID)
 	if err != nil {
-		return fmt.Errorf("error loading algorithm: %v", err)
+		return blockchain.Transaction{}, fmt.Errorf("error loading algorithm: %v", err)
 	}
 	algorithmPath := filepath.Join(n.TempDir, "algorithm.go")
 	if err := n.SaveFile(algorithmData, algorithmPath); err != nil {
-		return fmt.Errorf("error saving algorithm file: %v", err)
+		return blockchain.Transaction{}, fmt.Errorf("error saving algorithm file: %v", err)
 	}
 
 	// Verify algorithm file exists
 	if _, err := os.Stat(algorithmPath); err != nil {
-		return fmt.Errorf("algorithm file not found at path %s: %v", algorithmPath, err)
+		return blockchain.Transaction{}, fmt.Errorf("algorithm file not found at path %s: %v", algorithmPath, err)
 	}
 
 	// Load and list datasets from folderCID
 	datasets, err := n.IPFSClient.ListFolder(folderCID)
 	if err != nil {
-		return fmt.Errorf("error listing datasets: %v", err)
+		return blockchain.Transaction{}, fmt.Errorf("error listing datasets: %v", err)
 	}
 
 	// Display datasets to the user
@@ -82,18 +82,18 @@ func (n *Node) DownloadRequiredFiles(configCID, algorithmCID, folderCID string) 
 
 	// Validate dataset selection
 	if datasetIndex < 1 || datasetIndex > len(datasets) {
-		return fmt.Errorf("invalid dataset selection")
+		return blockchain.Transaction{}, fmt.Errorf("invalid dataset selection")
 	}
 	selectedDataset := datasets[datasetIndex-1]
 
 	// Fetch and save the selected dataset
 	datasetData, err := n.IPFSClient.FetchFile(selectedDataset.CID)
 	if err != nil {
-		return fmt.Errorf("error loading dataset: %v", err)
+		return blockchain.Transaction{}, fmt.Errorf("error loading dataset: %v", err)
 	}
 	datasetPath := filepath.Join(n.TempDir, selectedDataset.Name)
 	if err := n.SaveFile(datasetData, datasetPath); err != nil {
-		return fmt.Errorf("error saving dataset file: %v", err)
+		return blockchain.Transaction{}, fmt.Errorf("error saving dataset file: %v", err)
 	}
 
 	algorithmResult, err := n.SolveAlgorithm()
@@ -103,26 +103,23 @@ func (n *Node) DownloadRequiredFiles(configCID, algorithmCID, folderCID string) 
 
 	// fmt.Printf(algorithmResult)
 
-	
 	algorithmContent, err := os.ReadFile(algorithmPath)
 	if err != nil {
-		return fmt.Errorf("error reading algorithm file: %v", err)
+		return blockchain.Transaction{}, fmt.Errorf("error reading algorithm file: %v", err)
 	}
-	
+
 	datasetContent, err := os.ReadFile(datasetPath)
 	if err != nil {
-		return fmt.Errorf("error reading dataset file: %v", err)
+		return blockchain.Transaction{}, fmt.Errorf("error reading dataset file: %v", err)
 	}
-	
+
 	// fmt.Println(string(algorithmContent))
 	// fmt.Println(string(datasetContent))
-	
+
 	n.DeleteTempDir()
 	transaction := blockchain.NewTransaction(string(algorithmContent), string(datasetContent), algorithmResult)
-	testtrans := transaction.Serialize()
-	fmt.Println(testtrans)
 
-	return nil
+	return transaction, nil
 }
 
 // func (n *Node) SolveAlgorithm() (map[string]int, [][]float64, error) {
